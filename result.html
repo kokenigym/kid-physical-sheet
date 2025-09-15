@@ -810,27 +810,39 @@ canvas,
       document.getElementById('papsStandard').classList.remove('hidden');
       document.getElementById('youthStandard').classList.add('hidden');
     }
+  </script>
+<!-- 1) html2pdf 번들 로드: html2canvas + jsPDF 포함 -->
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
+
+<!-- 2) PDF 저장 함수 정의 -->
+  <script>
+function getJsPDF() {
+  // 번들마다 노출 방식 차이를 모두 커버
+  if (window.jsPDF) return window.jsPDF;
+  if (window.jspdf && window.jspdf.jsPDF) return window.jspdf.jsPDF;
+  return null;
+}
 
 async function downloadPDF() {
   const el = document.getElementById('wrapper');
 
-  // 라이브러리 확인 (html2pdf.bundle에 포함됨)
-  const JsPDF = window.jsPDF || (window.jspdf && window.jspdf.jsPDF);
+  // 라이브러리 로드 확인
+  const JsPDF = getJsPDF();
   if (!window.html2canvas || !JsPDF) {
-    alert('PDF 라이브러리가 로드되지 않았습니다. html2pdf.bundle 스크립트 위치를 확인해 주세요.');
+    console.error('html2canvas:', window.html2canvas, 'jsPDF:', JsPDF);
+    alert('PDF 라이브러리가 로드되지 않았습니다. html2pdf.bundle 위치/순서를 확인해 주세요.');
     return;
   }
 
-  // .no-print 요소는 캡처 전에 잠깐 숨김(인쇄 미디어쿼리는 html2canvas에 적용되지 않음)
+  // PDF에 안 찍힐 요소는 잠시 숨김 (CSS @media print는 캡처에 적용 안됨)
   const toHide = Array.from(document.querySelectorAll('.no-print'));
   const prevDisplay = toHide.map(n => n.style.display);
   toHide.forEach(n => n.style.display = 'none');
 
   try {
-    // 화면 전체(숨은 영역 포함) 캡처
-    const RENDER_SCALE = 3; // 2~3 권장
+    // 화면 전체 캡처
     const canvas = await window.html2canvas(el, {
-      scale: RENDER_SCALE,
+      scale: 3,                 // 2~3 권장
       useCORS: true,
       backgroundColor: '#ffffff',
       scrollY: -window.scrollY,
@@ -838,7 +850,7 @@ async function downloadPDF() {
       windowHeight: el.scrollHeight
     });
 
-    // A4 한 장에 맞춰 축소 배치
+    // A4 한 장에 맞춰 축소/중앙 배치
     const A4_W = 210, A4_H = 297, MARGIN = 10; // mm
     const INNER_W = A4_W - MARGIN * 2, INNER_H = A4_H - MARGIN * 2;
     const PX_PER_MM = 96 / 25.4;
@@ -855,14 +867,15 @@ async function downloadPDF() {
     const pdf = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
     pdf.addImage(canvas.toDataURL('image/jpeg', 0.98), 'JPEG', x, y, renderW, renderH);
     pdf.save('Result.pdf');
-  } catch (err) {
-    console.error(err);
+  } catch (e) {
+    console.error(e);
     alert('PDF 생성 중 오류가 발생했습니다. 콘솔을 확인해 주세요.');
   } finally {
     // 숨겼던 요소 원복
     toHide.forEach((n, i) => n.style.display = prevDisplay[i] || '');
   }
 }
+
 
     let currentEditIndex = null;
     // (16) 항목별 코멘트 수정 기능
