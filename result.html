@@ -215,6 +215,45 @@
   transform: translateY(0);
   pointer-events: auto;
 }
+/* --- A. html2pdf가 참고할 페이지 나눔 규칙 --- */
+.html2pdf__page-break { page-break-before: always; break-before: page; }
+
+/* --- B. 잘림 방지: 카드/표/그래프는 같은 페이지에 유지 --- */
+.glass-card,
+table, thead, tbody, tr, td, th,
+.score-bar,
+canvas,
+.section, .panel, .box {
+  page-break-inside: avoid;
+  break-inside: avoid;
+  overflow: visible !important;
+}
+
+/* --- C. 인쇄/내보내기 시 효과 제거(잘림/성능 이슈 방지) --- */
+@media print {
+  body { overflow: visible !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  #wrapper {
+    width: 210mm !important;   /* A4 폭 */
+    padding: 12mm !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+  }
+  .glass-card { backdrop-filter: none !important; }
+  /* 절대/고정 포지션 장식요소는 문제를 잘 일으킴 */
+  .fixed, .sticky, header, footer { position: static !important; }
+  .tooltip, .feedback-indicator { display: none !important; }
+}
+
+/* --- D. 화면용 레이아웃은 그대로 두되, 내보내기 폭은 안전하게 --- */
+@media screen and (min-width: 1140px) {
+  #wrapper {
+    /* 화면에서는 넓게 보이되, 내보내기 때는 JS에서 강제로 맞춤 */
+    width: 1140px;
+    min-height: 1123px;
+  }
+}
+    
   </style>
 </head>
 <body>
@@ -742,18 +781,33 @@
       document.getElementById('youthStandard').classList.add('hidden');
     }
 
-    // (15) PDF 저장 기능
-    function downloadPDF() {
-      html2pdf().from(document.body)
-        .set({
-          margin: 0.5,
-          filename: 'Result.pdf',
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2 },
-          jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-        })
-        .save();
-    }
+function downloadPDF() {
+  const element = document.getElementById('wrapper');
+
+  const opt = {
+    margin:       [10, 10, 10, 10],      // mm
+    filename:     'Result.pdf',
+    image:        { type: 'jpeg', quality: 0.98 },
+    html2canvas:  {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      scrollY: 0,               // 현재 스크롤 위치에 따른 잘림 방지
+      windowWidth: 1140         // 화면 레이아웃 기준 폭을 명시
+    },
+    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak:    { mode: ['css', 'avoid-all'] } // CSS 규칙 + 최대한 분할 회피
+  };
+
+  // 내보내기 직전, 화면 폭이 a4 컨텐츠 폭으로 맞춰지도록 일시 강제
+  const prevWidth = element.style.width;
+  element.style.width = '190mm'; // 210mm - 좌우여백(각 10mm)
+
+  html2pdf().set(opt).from(element).save().then(() => {
+    // 되돌리기
+    element.style.width = prevWidth;
+  });
+}
     let currentEditIndex = null;
     // (16) 항목별 코멘트 수정 기능
     function editComment(index, label) {
