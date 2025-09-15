@@ -811,49 +811,58 @@ canvas,
       document.getElementById('youthStandard').classList.add('hidden');
     }
 
+
 async function downloadPDF() {
   const el = document.getElementById('wrapper');
 
-  // A4 + 여백(mm)
-  const A4_W = 210, A4_H = 297;
-  const MARGIN = 10;                        // 상/하/좌/우 10mm
-  const INNER_W = A4_W - MARGIN * 2;
-  const INNER_H = A4_H - MARGIN * 2;
+  // 라이브러리 확인 (html2pdf.bundle에 포함됨)
+  const JsPDF = window.jsPDF || (window.jspdf && window.jspdf.jsPDF);
+  if (!window.html2canvas || !JsPDF) {
+    alert('PDF 라이브러리가 로드되지 않았습니다. html2pdf.bundle 스크립트 위치를 확인해 주세요.');
+    return;
+  }
 
-  // 캡처 품질(2~3 권장; 클수록 선명하지만 용량↑)
-  const RENDER_SCALE = 3;
+  // .no-print 요소는 캡처 전에 잠깐 숨김(인쇄 미디어쿼리는 html2canvas에 적용되지 않음)
+  const toHide = Array.from(document.querySelectorAll('.no-print'));
+  const prevDisplay = toHide.map(n => n.style.display);
+  toHide.forEach(n => n.style.display = 'none');
 
-  // 화면 전체(숨은 영역 포함) 캡처
-  const canvas = await window.html2canvas(el, {
-    scale: RENDER_SCALE,
-    useCORS: true,
-    backgroundColor: '#ffffff',
-    scrollY: -window.scrollY,   // 스크롤 영향 제거
-    windowWidth: el.scrollWidth,
-    windowHeight: el.scrollHeight
-  });
+  try {
+    // 화면 전체(숨은 영역 포함) 캡처
+    const RENDER_SCALE = 3; // 2~3 권장
+    const canvas = await window.html2canvas(el, {
+      scale: RENDER_SCALE,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      scrollY: -window.scrollY,
+      windowWidth:  el.scrollWidth,
+      windowHeight: el.scrollHeight
+    });
 
-  const imgData = canvas.toDataURL('image/jpeg', 0.98);
+    // A4 한 장에 맞춰 축소 배치
+    const A4_W = 210, A4_H = 297, MARGIN = 10; // mm
+    const INNER_W = A4_W - MARGIN * 2, INNER_H = A4_H - MARGIN * 2;
+    const PX_PER_MM = 96 / 25.4;
 
-  // px → mm (96DPI 기준)
-  const PX_PER_MM = 96 / 25.4;
-  const imgWmm = canvas.width  / PX_PER_MM;
-  const imgHmm = canvas.height / PX_PER_MM;
+    const imgWmm = canvas.width  / PX_PER_MM;
+    const imgHmm = canvas.height / PX_PER_MM;
 
-  // A4 내부영역에 맞추는 축소비 (한 장에 강제)
-  const ratio = Math.min(INNER_W / imgWmm, INNER_H / imgHmm, 1);
-  const renderW = imgWmm * ratio;
-  const renderH = imgHmm * ratio;
+    const ratio   = Math.min(INNER_W / imgWmm, INNER_H / imgHmm, 1);
+    const renderW = imgWmm * ratio;
+    const renderH = imgHmm * ratio;
+    const x = (A4_W - renderW) / 2;
+    const y = (A4_H - renderH) / 2;
 
-  // 중앙 배치
-  const x = (A4_W - renderW) / 2;
-  const y = (A4_H - renderH) / 2;
-
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-
-  pdf.addImage(imgData, 'JPEG', x, y, renderW, renderH);
-  pdf.save('Result.pdf');
+    const pdf = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.98), 'JPEG', x, y, renderW, renderH);
+    pdf.save('Result.pdf');
+  } catch (err) {
+    console.error(err);
+    alert('PDF 생성 중 오류가 발생했습니다. 콘솔을 확인해 주세요.');
+  } finally {
+    // 숨겼던 요소 원복
+    toHide.forEach((n, i) => n.style.display = prevDisplay[i] || '');
+  }
 }
 
     let currentEditIndex = null;
