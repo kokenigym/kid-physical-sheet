@@ -230,19 +230,12 @@ canvas,
 }
 
 /* --- C. 인쇄/내보내기 시 효과 제거(잘림/성능 이슈 방지) --- */
+@page { size: A4; margin: 10mm; }
+
 @media print {
-  body { overflow: visible !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  #wrapper {
-    width: 210mm !important;   /* A4 폭 */
-    padding: 12mm !important;
-    box-shadow: none !important;
-    border-radius: 0 !important;
-    background: #fff !important;
-  }
-  .glass-card { backdrop-filter: none !important; }
-  /* 절대/고정 포지션 장식요소는 문제를 잘 일으킴 */
-  .fixed, .sticky, header, footer { position: static !important; }
-  .tooltip, .feedback-indicator { display: none !important; }
+  html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+  #wrapper { box-shadow: none !important; border-radius: 0 !important; background: #fff !important; }
+  .tooltip, .feedback-indicator { display: none !important; } /* 장식 숨김 */
 }
 
 /* --- D. 화면용 레이아웃은 그대로 두되, 내보내기 폭은 안전하게 --- */
@@ -826,42 +819,42 @@ async function downloadPDF() {
 
   // A4 + 여백(mm)
   const A4_W = 210, A4_H = 297;
-  const MARGIN = 10;                   // 여백 mm
-  const INNER_W = A4_W - MARGIN*2;
-  const INNER_H = A4_H - MARGIN*2;
+  const MARGIN = 10;                         // 상하좌우 10mm 여백
+  const INNER_W = A4_W - MARGIN * 2;
+  const INNER_H = A4_H - MARGIN * 2;
 
-  // 렌더 품질(크면 선명, 용량↑)
+  // 품질(크면 더 선명, 파일용량↑): 2~3 권장
   const RENDER_SCALE = 3;
 
-  // 화면 스크롤 영향 제거 & 배경 흰색 고정
+  // 내보내기 전, 스크롤/배경 영향 제거하고 전체 영역 캡처
   const canvas = await html2canvas(el, {
     scale: RENDER_SCALE,
     useCORS: true,
     backgroundColor: '#ffffff',
     scrollY: -window.scrollY,
-    windowWidth: el.scrollWidth    // 숨은 영역까지 포함
+    windowWidth: el.scrollWidth,   // 숨은 가로영역까지 포함
+    windowHeight: el.scrollHeight  // 숨은 세로영역까지 포함
   });
 
-  const imgData = canvas.toDataURL('image/jpeg', 0.98);
+  const img = canvas.toDataURL('image/jpeg', 0.98);
 
-  // px ↔ mm 환산(96DPI 가정)
+  // px↔mm 변환(96DPI 가정)
   const PX_PER_MM = 96 / 25.4;
   const imgWmm = canvas.width  / PX_PER_MM;
   const imgHmm = canvas.height / PX_PER_MM;
 
-  // 한 페이지에 맞추는 축소비
+  // A4 내부 영역에 “한 장”으로 맞추는 축소비
   const ratio = Math.min(INNER_W / imgWmm, INNER_H / imgHmm, 1);
   const renderW = imgWmm * ratio;
   const renderH = imgHmm * ratio;
 
-  // 중앙 배치
+  // 중앙 정렬 좌표
   const x = (A4_W - renderW) / 2;
   const y = (A4_H - renderH) / 2;
 
-  // jsPDF는 html2pdf.bundle에 포함됨
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
-  pdf.addImage(imgData, 'JPEG', x, y, renderW, renderH);
+  const { jsPDF } = window.jspdf; // html2pdf.bundle에 포함됨
+  const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  pdf.addImage(img, 'JPEG', x, y, renderW, renderH);
   pdf.save('Result.pdf');
 }
     let currentEditIndex = null;
