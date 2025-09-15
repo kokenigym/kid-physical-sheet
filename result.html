@@ -784,61 +784,27 @@ canvas,
 function downloadPDF() {
   const element = document.getElementById('wrapper');
 
-  // A4와 여백(mm)
-  const MARGIN_MM = 10;                 // 좌/우/상/하 여백 (mm)
-  const A4_W_MM = 210, A4_H_MM = 297;
-  const INNER_W_MM = A4_W_MM - MARGIN_MM * 2;
-  const INNER_H_MM = A4_H_MM - MARGIN_MM * 2;
-
-  // mm → px (브라우저 96DPI 가정)
-  const PX_PER_MM = 96 / 25.4;
-  const TARGET_W_PX = INNER_W_MM * PX_PER_MM;
-  const TARGET_H_PX = INNER_H_MM * PX_PER_MM;
-
-  // 현재 콘텐츠 실제 크기 측정
-  const rect = element.getBoundingClientRect();
-  const fullWidthPx  = rect.width;                  // 보이는 폭
-  const fullHeightPx = element.scrollHeight;        // 전체 높이(오버플로 포함)
-
-  // 한 페이지에 들어가도록 축소 비율 계산
-  const ratio = Math.min(TARGET_W_PX / fullWidthPx, TARGET_H_PX / fullHeightPx, 1);
-
-  // 축소 적용 (내보내기 전용)
-  const prevTransform = element.style.transform;
-  const prevTransformOrigin = element.style.transformOrigin;
-  const prevWidth = element.style.width;
-
-  element.style.transformOrigin = 'top left';
-  element.style.transform = `scale(${ratio})`;
-  // scale로만 줄이면 레이아웃 계산 상 원래 크기로 페이지가 끊길 수 있어 width도 맞춰줌
-  element.style.width = `${fullWidthPx * ratio}px`;
-
   const opt = {
-    margin:       [MARGIN_MM, MARGIN_MM, MARGIN_MM, MARGIN_MM], // mm
+    margin:       [10, 10, 10, 10],      // mm
     filename:     'Result.pdf',
     image:        { type: 'jpeg', quality: 0.98 },
     html2canvas:  {
       scale: 2,
       useCORS: true,
       logging: false,
-      scrollY: 0,
-      // html2canvas가 레이아웃을 계산할 기준 폭
-      windowWidth: Math.ceil(fullWidthPx * ratio)
+      scrollY: 0,               // 현재 스크롤 위치에 따른 잘림 방지
+      windowWidth: 1140         // 화면 레이아웃 기준 폭을 명시
     },
     jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    // 페이지 분할은 피하고(어차피 1페이지), CSS 규칙도 존중
-    pagebreak:    { mode: ['css', 'avoid-all'] }
+    pagebreak:    { mode: ['css', 'avoid-all'] } // CSS 규칙 + 최대한 분할 회피
   };
 
+  // 내보내기 직전, 화면 폭이 a4 컨텐츠 폭으로 맞춰지도록 일시 강제
+  const prevWidth = element.style.width;
+  element.style.width = '190mm'; // 210mm - 좌우여백(각 10mm)
+
   html2pdf().set(opt).from(element).save().then(() => {
-    // 원상복구
-    element.style.transform = prevTransform;
-    element.style.transformOrigin = prevTransformOrigin;
-    element.style.width = prevWidth;
-  }).catch(() => {
-    // 실패해도 원복
-    element.style.transform = prevTransform;
-    element.style.transformOrigin = prevTransformOrigin;
+    // 되돌리기
     element.style.width = prevWidth;
   });
 }
